@@ -26,6 +26,7 @@ To compile and run tests:
 ```bash
 cd src
 make lab1       # Replace lab1 with lab2, lab3, or lab4 as needed
+```
 
 ## Status
 
@@ -37,4 +38,7 @@ make lab1       # Replace lab1 with lab2, lab3, or lab4 as needed
 ## Disclaimer
 
 This repository is intended for **personal learning and documentation only**. Please do not copy the code for academic submissions. Follow the [MIT Honor Code](https://integrity.mit.edu/) and use responsibly.
+
+```
+
 ```
