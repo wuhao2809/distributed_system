@@ -1,2 +1,6 @@
 pkg/
 *-handin.tar.gz
+bin/
+*.out
+*.log
+tmp/
