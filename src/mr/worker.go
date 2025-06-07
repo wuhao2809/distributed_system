@@ -1,10 +1,14 @@
 package mr
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"log"
 	"net/rpc"
+	"os"
+	"time"
 )
 
 // Map functions return a slice of KeyValue.
@@ -29,15 +33,62 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// uncomment to send the Example RPC to the coordinator.
 	// CallExample()
-
-	args := TaskRequest{WorkerID: 1} // example worker ID
-	reply := TaskReply{}
-	ok := call("Coordinator.AssignTask", &args, &reply)
-	if ok {
-		fmt.Printf("Task assigned: %s\n", reply.Message)
-	} else {
-		fmt.Printf("call failed!\n")
+	for {
+		args := TaskRequest{} // example worker ID
+		reply := TaskReply{}
+		ok := call("Coordinator.RequestTask", &args, &reply)
+		if ok {
+			log.Printf("Task assigned: %s\n", reply.Message)
+			if reply.IsTask && reply.TaskType == "map" {
+				MapWork(mapf, reply.Message, reply.NReduce, reply.FileID)
+			}
+		} else {
+			log.Printf("call failed!\n")
+		}
+		time.Sleep(time.Second * 1)
 	}
+}
+
+func MapWork(mapf func(string, string) []KeyValue, filename string, NReduce int, mapID int) {
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatalf("cannot open %v", filename)
+	}
+	content, err := io.ReadAll(file)
+	if err != nil {
+		log.Fatalf("cannot read %v", filename)
+	}
+	file.Close()
+	kva := mapf(filename, string(content))
+
+	// create files and encoder
+	files := make([]*os.File, NReduce)
+	encoders := make([]*json.Encoder, NReduce)
+	for r := 0; r < NReduce; r++ {
+		name := fmt.Sprintf("mr-%d-%d", mapID, r)
+		f, err := os.Create(name)
+		if err != nil {
+			log.Fatalf("cannot create %v", name)
+		}
+		files[r] = f
+		encoders[r] = json.NewEncoder(f)
+	}
+
+	// write each kv into the correct file
+	for _, kv := range kva {
+		r := ihash(kv.Key) % NReduce
+		err := encoders[r].Encode(&kv)
+		if err != nil {
+			log.Fatalf("Cannot encode %v", kv)
+		}
+	}
+
+	// close file
+	for _, f := range files {
+		f.Close()
+		log.Printf("Successfully close %v", f.Name())
+	}
+
 }
 
 // example function to show how to make an RPC call to the coordinator.

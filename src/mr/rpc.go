@@ -25,11 +25,20 @@ type ExampleReply struct {
 }
 
 type TaskRequest struct {
-	WorkerID int
 }
 
 type TaskReply struct {
-	Message string
+	IsTask   bool
+	TaskType string // 'map' or 'reduce'
+	FileID   int    // file ID for map tasks, or reduce task ID
+	Message  string // message for the worker
+	NReduce  int
+}
+
+type MapTask struct {
+	Filename   string
+	FileID     int
+	FileStatus string // 'idle', 'in-progress', 'done''
 }
 
 // Add your RPC definitions here.

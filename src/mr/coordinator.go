@@ -6,12 +6,11 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"strconv"
 )
 
 type Coordinator struct {
-	// Your definitions here.
-
+	MapTasks []MapTask // list of map tasks
+	NReduce  int       // number of reduce tasks
 }
 
 // Your code here -- RPC handlers for the worker to call.
@@ -24,10 +23,21 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
-func (c *Coordinator) AssignTask(args *TaskRequest, reply *TaskReply) error {
-	args.WorkerID = 1 // just an example, you should implement the logic to assign tasks
-	reply.Message = "Task assigned to worker " + strconv.Itoa(args.WorkerID)
-	log.Printf("Worker %d assigned a task", args.WorkerID)
+func (c *Coordinator) RequestTask(args *TaskRequest, reply *TaskReply) error {
+	// Check if there are any idle map tasks
+	for i, mapTask := range c.MapTasks {
+		if mapTask.FileStatus == "idle" {
+			c.MapTasks[i].FileStatus = "in-process"
+
+			reply.FileID = mapTask.FileID
+			reply.IsTask = true
+			reply.TaskType = "map"
+			reply.Message = mapTask.Filename
+			reply.NReduce = c.NReduce
+			return nil
+		}
+	}
+	reply.IsTask = false
 	return nil
 }
 
@@ -58,9 +68,18 @@ func (c *Coordinator) Done() bool {
 // create a Coordinator.
 // main/mrcoordinator.go calls this function.
 // nReduce is the number of reduce tasks to use.
-func MakeCoordinator(files []string, nReduce int) *Coordinator {
+func MakeCoordinator(files []string, NReduce int) *Coordinator {
 	c := Coordinator{}
-
+	for i, file := range files {
+		task := MapTask{
+			Filename:   file,
+			FileID:     i,
+			FileStatus: "idle",
+		}
+		c.MapTasks = append(c.MapTasks, task)
+		log.Printf("Added map task for file %s with ID %d", file, i)
+		c.NReduce = NReduce
+	}
 	// Your code here.
 
 	c.server()
